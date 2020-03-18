@@ -7,8 +7,10 @@ public class Main {
     String inputFile;
     String outputDir;
     boolean downloadMode;
-    public static int downloadCounter;
+    private static int downloadCounter;
+    private static int personCount;
     private static ArrayList<Person> personArrayList = new ArrayList<Person>();
+    private static int duplicatCount;
 
     public static void main(String[] args) {
         Main main = new Main();
@@ -22,7 +24,7 @@ public class Main {
             main.setInputFile(args[0]);
             main.setOutputDir(args[1]);
             if (args.length<=1)
-                main.setDownloadMode(false);
+                main.setDownloadMode(true);
             else
                 main.setDownloadMode(Boolean.parseBoolean(args[2]));
             downloadCounter=0;
@@ -35,6 +37,11 @@ public class Main {
     }
 
     private void showAllData(){
+        System.out.println("-----------------------------------");
+        System.out.println("Files gathered from "+ inputFile);
+        System.out.println("Files stored into "+ outputDir);
+        System.out.println("-----------------------------------");
+        int overallPictures = 0;
         for (Person person : personArrayList) {
             System.out.println("ID " + person.getID());
             System.out.println("Name " + person.getName());
@@ -43,22 +50,29 @@ public class Main {
             ArrayList<Picture> pictureList = person.getPictureList();
             int pictureCount=0;
             for (Picture picture : pictureList){
+                System.out.println("");
                 System.out.println("\t TITL " + picture.getTitle());
                 String title = picture.getTitle();
-                // TODO errorhandlung nullcheck and so on
+                if (title.isEmpty()) {
+                    title = Integer.toString(pictureCount);
+                }
                 System.out.println("\t URL " + picture.getSourceURL());
                 System.out.println("\t TYPE " + picture.getFileType());
-                System.out.println("");
                 try {
-                    downloadPicture(person.getID(),picture.getSourceURL(),picture.getTitle(),picture.getFileType(),downloadMode);
+                    downloadPicture(person.getID(),picture.getSourceURL(),title,picture.getFileType(),downloadMode);
                 } catch (IOException e) {
                     System.out.println("Error wile downloading ID" + person.getID() +" :: URL" + picture.getSourceURL() );
                     e.printStackTrace();
                 }
                 pictureCount++;
+                overallPictures++;
             }
             System.out.println("-----------------------------------");
         }
+        System.out.println("-----------------------------------");
+        System.out.println(overallPictures+" Pictures downloaded");
+        System.out.println("with: " + duplicatCount+ " Duplicats");
+        System.out.println("-----------------------------------");
     }
 
     private void downloadPicture(String fileId,String fileUrl, String fileTitle, String fileType,boolean downloadMode) throws IOException {
@@ -66,6 +80,7 @@ public class Main {
             URL url = new URL(fileUrl);
             InputStream in = new BufferedInputStream(url.openStream());
             ByteArrayOutputStream out = new ByteArrayOutputStream();
+            String duplicateDir="";
             byte[] buf = new byte[1024];
             int n = 0;
             while (-1!=(n=in.read(buf)))
@@ -76,32 +91,54 @@ public class Main {
             in.close();
             byte[] response = out.toByteArray();
 
-            File directory = new File(outputDir);
-            if (! directory.exists()){
-                directory.mkdirs();
-                // If you require it to make the entire directory path including parents,
-                // use directory.mkdirs(); here instead.
+            checkIfDirExits(outputDir);
+            //Check if File already exists
+            File file = new File(outputDir+"\\"+fileId+"_"+fileTitle+"."+fileType);
+            if (file.exists() && !file.isDirectory()){
+                System.out.println("\t ---> FILE ALREADY EXISTS <---");
+                fileTitle=fileTitle+"_Duplikat_"+duplicatCount;
+                duplicateDir="\\Duplikate";
+                checkIfDirExits(outputDir+duplicateDir);
+                duplicatCount++;
             }
             //Save image
-            FileOutputStream fos = new FileOutputStream(directory+"\\"+fileId+"_"+fileTitle+"."+fileType);
+            FileOutputStream fos = new FileOutputStream(outputDir+duplicateDir+"\\"+fileId+"_"+fileTitle+"."+fileType);
             fos.write(response);
             fos.close();
         }
-        System.out.println("Downloaded: " + fileUrl + " --> SAVE AS: " + outputDir+"\\"+fileId+"_"+fileTitle+"."+fileType );
+        System.out.println("\tDownloaded: " + fileUrl + " -->\n\tSAVE AS: " + outputDir+"\\"+fileId+"_"+fileTitle+"."+fileType );
+    }
+
+    private void checkIfDirExits(String dir) {
+        File directory = new File(dir);
+        if (! directory.exists()){
+            directory.mkdirs();
+            // If you require it to make the entire directory path including parents,
+            // use directory.mkdirs(); here instead.
+        }
     }
 
 
     public static void showUsage(){
-        System.out.println("Due to the lack of the option to download saved pictures by the stored name from the MyHeritage Website, this little HelperTool was created by");
-        System.out.println("(c) 2019 Stefan Kutschera, BSc MSc");
+        System.out.println("GEDCOM picture downloader / Backup Tool");
+        System.out.println("");
+        System.out.println("Version: 0.2");
+        System.out.println("(c) 2020 Stefan Kutschera, BSc MSc  (dmz.stefan.kutschera@gmail.com)");
+        System.out.println("");
+        System.out.println("MyHeritage does'n offer the option to download stored pictures by the labeled name on MyHeritage " +
+                "Website. When exporting the GEDCOM file of your family tree this little tool can download all listed " +
+                "pictures by their labeled name on your local drive.");
+        System.out.println("However, this tool adds the ID each individual has as prefix to the filename. If you don't " +
+                "want that you might want to use a tool called 'Bulk Rename Utility'");
         System.out.println("");
 
-        System.out.println("Usage: java -jar MHPictureDownloader.jar <input GEDCOM file path> <output path> <boolean download mode>" );
+
+        System.out.println("Usage: java -jar MHPictureDownloader.jar <input GEDCOM file path> <output path> [boolean download mode]" );
         System.out.println("" +
                 "\t<input GEDCOM file path> : define the full path to your input GEDCOM file\n" +
                 "\t<output path> : define the full path were your photos should be saved (Folder will be created if not existent)\n" +
-                "\t<boolean download mode> : true --> Photos will be downloaded false --> See how the program would behave, no files will be downloaded\n");
-        System.out.println("EXAMPLE: java -jar MHPictureDownloader.jar C:\\\\temp\\gedcom_testfile.txt C:\\\\temp\\pics true");
+                "\t[boolean download mode] : Default value is 'true'; \n\t\t'true' --> Photos will be downloaded \n\t\t'false' --> See how the program would behave, no files will be downloaded.\n");
+        System.out.println("EXAMPLE: java -jar MHPictureDownloader.jar C:\\\\temp\\gedcom_testfile.ged C:\\\\temp\\backup true");
         System.exit(0);
     }
 
@@ -135,6 +172,7 @@ public class Main {
                     person = new Person(idLine[1]);
                     personArrayList.add(person);
                     line = br.readLine();
+                    personCount++;
                 }
                 if(line.contains("NAME") && person != null){
                     person.setName((line.split("NAME ")[1]).replace("/","").replace(" ","_"));
@@ -143,6 +181,7 @@ public class Main {
                     picture = new Picture();
                     person.addPicture(picture);
                     picture.setFileType(line.split("FORM ")[1]);
+                    downloadCounter++;
                 }
                 if (line.contains("GIVN ")){
                     person.setGivenname(line.split("GIVN ")[1]);
@@ -154,8 +193,10 @@ public class Main {
                     picture.setTitle(line.split("TITL ")[1]);
                 }
             }
-            System.out.println("---------- FINISHED ---------------------");
-            System.out.println("Collected all data: " + downloadCounter + " Pictures");
+            System.out.println("-------------------------------");
+            System.out.println("Collected : " + downloadCounter + " Pictures");
+            System.out.println("of: " + personCount + " Persons");
+            System.out.println("-------------------------------");
         } catch (IOException e) {
             e.printStackTrace();
         }

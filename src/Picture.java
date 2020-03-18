@@ -29,7 +29,10 @@ public class Picture {
      * @return
      */
     public String getTitle() {
-        return title;
+        if (title!=null)
+            return title;
+        else
+            return "";
     }
 
     public void setTitle(String title) {
